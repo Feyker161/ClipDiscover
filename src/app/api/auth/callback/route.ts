@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const REDIRECT_URI = 'http://localhost:3000/api/auth/callback'
 const TOKEN_URL = 'https://id.twitch.tv/oauth2/token'
+
+function getRedirectUri() {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+  return `${baseUrl}/api/auth/callback`
+}
 
 function getClientId() {
   return process.env.TWITCH_CLIENT_ID || process.env.NEXT_PUBLIC_TWITCH_CLIENT_ID || ''
@@ -10,6 +14,7 @@ function getClientId() {
 export async function GET(request: NextRequest) {
   const clientId = getClientId()
   const clientSecret = process.env.TWITCH_CLIENT_SECRET || ''
+
   if (!clientId || !clientSecret) {
     return NextResponse.redirect(new URL('/?error=missing_twitch_env', request.url))
   }
@@ -18,21 +23,28 @@ export async function GET(request: NextRequest) {
   const code = url.searchParams.get('code')
   const state = url.searchParams.get('state')
   const error = url.searchParams.get('error')
-  if (error) return NextResponse.redirect(new URL(`/?error=${encodeURIComponent(error)}`, request.url))
-  if (!code || !state) return NextResponse.redirect(new URL('/?error=missing_code', request.url))
+
+  if (error) {
+    return NextResponse.redirect(new URL(`/?error=${encodeURIComponent(error)}`, request.url))
+  }
+
+  if (!code || !state) {
+    return NextResponse.redirect(new URL('/?error=missing_code', request.url))
+  }
 
   const cookieState = request.cookies.get('twitch_oauth_state')?.value
-
   if (!cookieState || cookieState !== state) {
     return NextResponse.redirect(new URL('/?error=invalid_state', request.url))
   }
+
+  const redirectUri = getRedirectUri()
 
   const params = new URLSearchParams({
     client_id: clientId,
     client_secret: clientSecret,
     code,
     grant_type: 'authorization_code',
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: redirectUri,           // ← jetzt dynamisch
   })
 
   const tokenRes = await fetch(TOKEN_URL, {
@@ -43,6 +55,8 @@ export async function GET(request: NextRequest) {
   })
 
   if (!tokenRes.ok) {
+    const errorText = await tokenRes.text()
+    console.error('Token exchange failed:', errorText)
     return NextResponse.redirect(new URL('/?error=token_exchange_failed', request.url))
   }
 
@@ -53,6 +67,7 @@ export async function GET(request: NextRequest) {
   }
 
   const response = NextResponse.redirect(new URL('/', request.url))
+
   response.cookies.set('twitch_access_token', json.access_token, {
     httpOnly: true,
     sameSite: 'lax',
@@ -60,6 +75,7 @@ export async function GET(request: NextRequest) {
     path: '/',
     maxAge: json.expires_in,
   })
+
   if (json.refresh_token) {
     response.cookies.set('twitch_refresh_token', json.refresh_token, {
       httpOnly: true,
@@ -69,7 +85,7 @@ export async function GET(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 30,
     })
   }
+
   response.cookies.delete('twitch_oauth_state')
   return response
 }
-
