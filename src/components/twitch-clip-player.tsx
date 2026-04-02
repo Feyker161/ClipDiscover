@@ -53,14 +53,22 @@ export function TwitchClipPlayer({
     const url = new URL('https://clips.twitch.tv/embed')
     url.searchParams.set('clip', clip.slug)
     url.searchParams.set('parent', parent)
-    url.searchParams.set('autoplay', active ? 'true' : 'false')
+    url.searchParams.set('autoplay', 'true') // Videos sollen immer automatisch abspielen, wenn sie "active" sind
     url.searchParams.set('muted', muted ? 'true' : 'false')
-    url.searchParams.set('preload', preload ? 'true' : 'false')
+    url.searchParams.set('preload', preload ? 'true' : 'false') // Preload basierend auf Prop
     return url.toString()
-  }, [clip.slug, parent, active, muted, preload])
+  }, [clip.slug, parent, muted, preload]) // 'active' wird hier entfernt, da autoplay immer true ist.
 
+  // `showEmbed` wird nun immer true sein, wenn der Clip aktiv ist oder vorgeladen wird.
+  // Dadurch wird der `iframe` immer gerendert, aber nur wenn `active` oder `preload` true ist.
   const showEmbed = active || preload
 
+  React.useEffect(() => {
+    // Wenn der Clip aktiv wird, soll er ungemutet abgespielt werden (falls nicht bereits gemutet)
+    if (active) {
+      setMuted(false)
+    }
+  }, [active]) // Auf Änderungen von `active` reagieren
   React.useEffect(() => {
     if (!didInitLikeRef.current) {
       didInitLikeRef.current = true
@@ -95,7 +103,7 @@ export function TwitchClipPlayer({
     lastTapRef.current = now
     if (last && now - last < 260) {
       if (!liked) toggleLike()
-      setHeartBurstAt(now)
+      setHeartBurstAt(now) // Herz-Burst auch beim Doppeltippen auslösen
     } else {
       setMuted((m) => !m)
     }
@@ -111,15 +119,16 @@ export function TwitchClipPlayer({
       aria-label={`Twitch clip ${clip.title}`}
     >
       <div className="absolute inset-0">
-        {showEmbed ? (
+        {showEmbed && ( // Iframe nur rendern, wenn showEmbed true ist
           <iframe
-            key={`${clip.slug}:${muted ? 'muted' : 'sound'}:${active ? 'play' : 'pause'}`}
+            key={`${clip.slug}:${parent}`} // Key nur ändern, wenn sich Clip oder Parent ändern
             src={iframeSrc}
             className="h-full w-full"
             allow="autoplay; fullscreen"
             title={clip.title}
           />
-        ) : (
+        )}
+        {!showEmbed && ( // Placeholder, wenn iframe nicht gerendert wird
           <div className="h-full w-full bg-gradient-to-b from-[#141414] to-[#0F0F0F]" />
         )}
       </div>
@@ -220,7 +229,7 @@ export function TwitchClipPlayer({
         </div>
       </footer>
 
-      {/* double-tap heart burst */}
+      {/* double-tap heart burst */}\
       {heartBurstAt && (
         <div
           key={heartBurstAt}
