@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getBaseUrl } from '@/lib/auth'; // Importiere die neue Hilfsfunktion
 
 const TWITCH_OAUTH_URL = 'https://id.twitch.tv/oauth2/authorize'
 
@@ -23,7 +24,8 @@ export async function GET() {
   }
 
   const state = crypto.randomUUID()
-  const redirectUri = getRedirectUri()   // ← jetzt dynamisch
+  const baseUrl = getBaseUrl();
+  const redirectUri = `${baseUrl}/api/auth/callback`;   // ← jetzt dynamisch
 
   const loginUrl = new URL(TWITCH_OAUTH_URL)
   loginUrl.searchParams.set('client_id', clientId)

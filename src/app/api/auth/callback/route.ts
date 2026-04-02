@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getBaseUrl } from '@/lib/auth'; // Importiere die neue Hilfsfunktion
 
 const TOKEN_URL = 'https://id.twitch.tv/oauth2/token'
 
@@ -37,23 +38,23 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/?error=invalid_state', request.url))
   }
 
-  const redirectUri = getRedirectUri()
+  const baseUrl = getBaseUrl();
+  const redirectUri = `${baseUrl}/api/auth/callback`; // Stelle sicher, dass dies exakt übereinstimmt
 
-  const params = new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
-    code,
-    grant_type: 'authorization_code',
-    redirect_uri: redirectUri,           // ← jetzt dynamisch
-  })
-
+  if (code) {
+    try {
   const tokenRes = await fetch(TOKEN_URL, {
     method: 'POST',
-    body: params,
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code: code,
+          grant_type: 'authorization_code',
+          redirect_uri: redirectUri, // Verwende den dynamischen redirectUri auch hier
+        }).toString(),
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     cache: 'no-store',
-  })
-
+      });
   if (!tokenRes.ok) {
     const errorText = await tokenRes.text()
     console.error('Token exchange failed:', errorText)
@@ -88,4 +89,11 @@ export async function GET(request: NextRequest) {
 
   response.cookies.delete('twitch_oauth_state')
   return response
+    } catch (error) {
+      console.error('Error exchanging code for token:', error);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+}
+  }
+
+  return NextResponse.json({ error: 'Code not provided' }, { status: 400 });
 }
