@@ -7,6 +7,7 @@ import type { TwitchFeedClip } from '@/lib/twitch-api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { saveClip, unsaveClip } from '@/app/actions/saved'
 
 type TwitchClipPlayerProps = {
   clip: TwitchFeedClip
@@ -94,8 +95,32 @@ export function TwitchClipPlayer({
   }, [])
 
   const toggleSave = React.useCallback(() => {
-    setSaved((prev) => !prev)
-  }, [])
+    setSaved((prev) => {
+      const next = !prev
+      ;(async () => {
+        try {
+          if (next) {
+            await saveClip({
+              id: clip.id,
+              slug: clip.slug,
+              title: clip.title,
+              streamerName: clip.streamer.name,
+              thumbnailUrl: clip.streamer.avatarUrl,
+              durationSeconds: clip.durationSeconds,
+              url: undefined,
+            })
+          } else {
+            await unsaveClip(clip.id)
+          }
+        } catch (err) {
+          console.error('save toggle failed', err)
+          // revert optimistic update
+          setSaved((s) => !s)
+        }
+      })()
+      return next
+    })
+  }, [clip.id, clip.slug, clip.title, clip.streamer.name, clip.streamer.avatarUrl, clip.durationSeconds])
 
   const onTap = React.useCallback(() => {
     const now = Date.now()
