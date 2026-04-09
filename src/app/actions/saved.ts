@@ -22,26 +22,28 @@ export async function saveClip(clip: ClipData) {
     if (!token) throw new Error('Not authenticated')
 
     const user = await getCurrentUserFromToken(token)
-    const supabase = getServerClient()
+    const supabase = getServerClient() as any
 
     // upsert clip into clips table
-    const { data: clipRow, error: upsertError } = await supabase
-      .from('clips')
-      .upsert(
-        {
-          twitch_clip_id: clip.id,
-          slug: clip.slug ?? clip.id,
-          title: clip.title,
-          broadcaster_name: clip.streamerName,
-          thumbnail_url: clip.thumbnailUrl ?? null,
-          url: clip.url ?? null,
-          duration: clip.durationSeconds ?? null,
-        },
-        { onConflict: 'twitch_clip_id', returning: 'representation' },
-      )
+    const upsertResult = await supabase.from('clips').upsert(
+      {
+        twitch_clip_id: clip.id,
+        slug: clip.slug ?? clip.id,
+        title: clip.title,
+        broadcaster_name: clip.streamerName,
+        thumbnail_url: clip.thumbnailUrl ?? null,
+        url: clip.url ?? null,
+        duration: clip.durationSeconds ?? null,
+      },
+      // using any to avoid typing mismatches across supabase versions
+      { onConflict: 'twitch_clip_id' },
+    )
+
+    const clipRow = upsertResult.data
+    const upsertError = upsertResult.error
 
     if (upsertError) throw upsertError
-    const inserted = Array.isArray(clipRow) ? clipRow[0] : clipRow
+    const inserted: any = Array.isArray(clipRow) ? clipRow[0] : clipRow
     if (!inserted) throw new Error('Failed to upsert clip')
 
     // insert saved_clips for this user

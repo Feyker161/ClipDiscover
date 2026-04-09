@@ -7,7 +7,7 @@ import type { TwitchFeedClip } from '@/lib/twitch-api'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { saveClip, unsaveClip } from '@/app/actions/saved'
+import { saveClipClient as saveClip, unsaveClipClient as unsaveClip } from '@/lib/saved-client'
 
 type TwitchClipPlayerProps = {
   clip: TwitchFeedClip
