@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getBaseUrl } from '@/lib/auth'; // Importiere die neue Hilfsfunktion
+import { getCurrentUser } from '@/lib/twitch'
+import { getServerClient } from '@/lib/supabase'
 
 const TOKEN_URL = 'https://id.twitch.tv/oauth2/token'
 
@@ -88,6 +90,21 @@ export async function GET(request: NextRequest) {
   }
 
   response.cookies.delete('twitch_oauth_state')
+  try {
+    // attempt to fetch twitch profile and upsert into users table
+    const profile = await getCurrentUser(json.access_token, clientId)
+    const supabase = getServerClient() as any
+    await supabase.from('users').upsert(
+      {
+        twitch_id: profile.id,
+        username: profile.login,
+        avatar_url: profile.profileImageUrl,
+      },
+      { onConflict: 'twitch_id' },
+    )
+  } catch (err) {
+    console.error('Failed to upsert user after auth callback', err)
+  }
   return response
     } catch (error) {
       console.error('Error exchanging code for token:', error);

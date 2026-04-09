@@ -1,4 +1,5 @@
 import React from 'react'
+export const dynamic = 'force-dynamic'
 import { getSavedClips } from '@/app/actions/saved'
 import { ClipFeed } from '@/components/clip-feed'
 import { BottomNav } from '@/app/ui/bottom-nav'
